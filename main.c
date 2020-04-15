@@ -116,10 +116,30 @@ noinline int user_func_nop(struct expr_func *f, vec_expr_t args, void *c)
     return 0;
 }
 
+noinline void user_func_fib_cleanup(struct expr_func *f, void *c)
+{
+    /* suppress compilation warning */
+    (void) f;
+    (void) c;
+}
+
+noinline int fib_clz(int n)
+{
+    printk("Use fib_clz to calculate fib %d\n", n);
+    return 0;
+}
+
+noinline int user_func_fib(struct expr_func *f, vec_expr_t args, void *c)
+{
+    /* test */
+    int n = expr_eval(&vec_nth(&args, 0));
+    return fib_clz(n);
+}
+
 static struct expr_func user_funcs[] = {
     {"nop", user_func_nop, user_func_nop_cleanup, 0},
-    {NULL, NULL, NULL, 0},
-};
+    {"fib", user_func_fib, user_func_fib_cleanup, 0},
+    {NULL, NULL, NULL, 0}};
 
 static void calc(void)
 {

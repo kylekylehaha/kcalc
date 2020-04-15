@@ -241,7 +241,21 @@ static int mult(int a, int b)
     int n2 = GET_NUM(b);
     int n3 = n1 * n2;
 
-    return FP2INT(n3, (frac1 + frac2));
+    if ((n2 != 0) && (n1 != n3 / n2)) {
+        printk("Error: overflow\n");
+        return FP2INT(-1, 0);
+    }
+
+    int frac3 = frac1 + frac2;
+    if ((frac3 > 0) && (frac1 < 0) && (frac2 < 0)) {
+        printk("Error: overflow\n");
+        return FP2INT(-1, 0);
+    }
+    if ((frac3 < 0) && (frac1 > 0) && (frac2 > 0)) {
+        printk("Error: overflow\n");
+        return FP2INT(-1, 0);
+    }
+    return FP2INT(n3, frac3);
 }
 
 static int divid(int a, int b)
@@ -250,16 +264,27 @@ static int divid(int a, int b)
     int frac2 = GET_FRAC(b);
     int n1 = GET_NUM(a);
     int n2 = GET_NUM(b);
+    int sign = 1;
     if (n1 == 0 && n2 == 0)
         return NAN_INT;
     if (n2 == 0)
         return INF_INT;
 
+    /* check if there is negative number */
+    if (n1 < 0) {
+        sign = -sign;
+        n1 = -n1;
+    }
+    if (n2 < 0) {
+        sign = -sign;
+        n2 = -n2;
+    }
+
     while (n1 * 10 < ((1 << 25) - 1)) {
         --frac1;
         n1 *= 10;
     }
-    int n3 = n1 / n2;
+    int n3 = (n1 / n2) * sign;
     int frac3 = frac1 - frac2;
 
     return FP2INT(n3, frac3);
@@ -345,9 +370,18 @@ static int plus(int a, int b)
         }
     }
 
-    n1 += n2;
-
-    return FP2INT(n1, frac1);
+    // n1 += n2;
+    /* check whether it is overflow */
+    int n3 = n1 + n2;
+    if ((n3 > 0) && (n1 < 0) && (n2 < 0)) {
+        printk("Error: overflow\n");
+        return FP2INT(-1, 0);
+    }
+    if ((n3 < 0) && (n1 > 0) && (n2 > 0)) {
+        printk("Error: overflow\n");
+        return FP2INT(-1, 0);
+    }
+    return FP2INT(n3, frac1);
 }
 
 static int minus(int a, int b)
@@ -367,8 +401,18 @@ static int minus(int a, int b)
         }
     }
 
-    n1 -= n2;
-    return FP2INT(n1, frac1);
+    // n1 -= n2;
+    /* check whether it is underflow */
+    int n3 = n1 - n2;
+    if ((n1 > n3) && (n2 < 0)) {
+        printk("Error: overflow\n");
+        return FP2INT(-1, 0);
+    }
+    if ((n1 < n3) && (n2 > 0)) {
+        printk("Error: overflow\n");
+        return FP2INT(-1, 0);
+    }
+    return FP2INT(n3, frac1);
 }
 
 static int compare(int a, int b)
@@ -979,6 +1023,7 @@ struct expr *expr_create(const char *s,
             *result = vec_pop(&es);
     }
 
+#if 0
     int i, j;
     struct macro m;
     struct expr e;
@@ -1008,6 +1053,7 @@ cleanup:
     /*vec_foreach(&os, o, i) {vec_free(&m.body);}*/
     vec_free(&os);
     return result;
+#endif
 }
 
 static void expr_destroy_args(struct expr *e)
@@ -1018,7 +1064,7 @@ static void expr_destroy_args(struct expr *e)
         vec_foreach (&e->param.func.args, arg, i) {
             expr_destroy_args(&arg);
         }
-        vec_free(&e->param.func.args);
+        // vec_free(&e->param.func.args);
         if (e->param.func.context) {
             if (e->param.func.f->cleanup) {
                 e->param.func.f->cleanup(e->param.func.f,
@@ -1030,7 +1076,7 @@ static void expr_destroy_args(struct expr *e)
         vec_foreach (&e->param.op.args, arg, i) {
             expr_destroy_args(&arg);
         }
-        vec_free(&e->param.op.args);
+        // vec_free(&e->param.op.args);
     }
 }
 
